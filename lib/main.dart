@@ -12,7 +12,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: CurrentLocation());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+        home: CurrentLocation());
   }
 }
 
@@ -155,71 +157,114 @@ class CurrentLocation extends StatefulWidget {
 
 class _CurrentLocationState extends State<CurrentLocation> {
   Position? _currentPosition;
+  Position? _liveLocation;
+
   // check location permission
-  Future<bool> _checkLocationPermission()async{
+  Future<bool> _checkLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    if(permission == LocationPermission.always || permission == LocationPermission.whileInUse){
-    return true;
-    }else {
-      return false;
-    }
-  }
-  // request location permission
-  Future<bool> _requestLocationPermission()async{
-    LocationPermission requestPermission = await Geolocator.requestPermission();
-    if(requestPermission == LocationPermission.always || requestPermission == LocationPermission.whileInUse){
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
       return true;
-    }else {
+    } else {
       return false;
     }
   }
+
+  // request location permission
+  Future<bool> _requestLocationPermission() async {
+    LocationPermission requestPermission = await Geolocator.requestPermission();
+    if (requestPermission == LocationPermission.always ||
+        requestPermission == LocationPermission.whileInUse) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   // GPS is enabled or not
-  Future<bool> _checkIfGPSEnabled()async{
+  Future<bool> _checkIfGPSEnabled() async {
     return await Geolocator.isLocationServiceEnabled();
   }
+
   //get current location
-  Future<void>_getCurrentLocation()async{
-    if(await _checkLocationPermission()){
-      if(await _checkIfGPSEnabled()){
+  Future<void> _getCurrentLocation() async {
+    if (await _checkLocationPermission()) {
+      if (await _checkIfGPSEnabled()) {
         Position position = await Geolocator.getCurrentPosition();
         _currentPosition = position;
         setState(() {});
       }
-      else{
+      else {
         Geolocator.openAppSettings();
       }
-    }else{
+    } else {
       print("Location is not Available");
-      if(await _requestLocationPermission()){
+      if (await _requestLocationPermission()) {
         _getCurrentLocation();
-      }else{
+      } else {
         Geolocator.openAppSettings();
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Current Location'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text("Latitude:${_currentPosition?.latitude}, Longitude:${_currentPosition?.longitude}"),
-          ],
-        )
-      ),
-      floatingActionButton: FloatingActionButton(
-          onPressed: (){
-            _getCurrentLocation();
-          },
-          child: Icon(Icons.location_history),
-          ),
-    );
-  }
-}
+    Future<void> _listenCurrentLocation() async {
+      if (await _checkLocationPermission()) {
+        if (await _checkIfGPSEnabled()) {
+          Geolocator.getPositionStream().listen((location) {
+            {
+              _liveLocation = location;
+              setState(() {});
+            }
+          });
+        }
+        else {
+          Geolocator.openAppSettings();
+        }
+      } else {
+        print("Location is not Available");
+        if (await _requestLocationPermission()) {
+          _getCurrentLocation();
+        } else {
+          Geolocator.openAppSettings();
+        }
+      }
+    }
 
+    @override
+    Widget build(BuildContext context) {
+      return Scaffold(
+          appBar: AppBar(
+            title: Text('Current Location'),
+            centerTitle: true,
+          ),
+          body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("Latitude:${_currentPosition
+                      ?.latitude}, Longitude:${_currentPosition?.longitude}"),
+                  //Text(_currentPosition?.isMocked.toString() ?? ''),
+                  Text("Live Location: $_liveLocation")
+                ],
+              )
+          ),
+          floatingActionButton: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              FloatingActionButton(
+                onPressed: () {
+                  _getCurrentLocation();
+                },
+                child: Icon(Icons.my_location_outlined),
+              ),
+              FloatingActionButton(
+                onPressed: () {
+                  _listenCurrentLocation();
+                },
+                child: Icon(Icons.location_history),
+              ),
+            ],
+          )
+      );
+    }
+  }
